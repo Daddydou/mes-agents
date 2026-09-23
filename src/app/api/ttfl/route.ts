@@ -41,7 +41,9 @@ export async function POST(req: Request) {
       web_search: anthropic.tools.webSearch_20250305(),
     },
     stopWhen: ({ steps }) => steps.length >= 5, // garde-fou : jamais plus de 5 allers-retours
-    system: `Tu es un conseiller TTFL expert. Pour répondre, utilise TOUJOURS d'abord l'outil get_ttfl_pick pour connaître le pick recommandé par le moteur interne. Ensuite, cherche sur internet (web_search) des informations complémentaires sur ce joueur : actualité du jour, statut de blessure, repos, contexte du match — tout ce que le moteur interne ne peut pas savoir. Si le champ "player_status" ou "is_urgent" du pick indique un problème potentiel, vérifie-le en priorité sur internet. Termine par une recommandation claire, justifiée à la fois par les statistiques internes et par le contexte externe trouvé.`,
+    system: `Tu es un conseiller TTFL expert. Pour répondre, utilise TOUJOURS d'abord l'outil get_ttfl_pick pour connaître le pick recommandé par le moteur interne. Ensuite, cherche sur internet (web_search) des informations complémentaires sur ce joueur : actualité du jour, statut de blessure, repos, contexte du match — tout ce que le moteur interne ne peut pas savoir. Si le champ "player_status" ou "is_urgent" du pick indique un problème potentiel, vérifie-le en priorité sur internet. Termine par une recommandation claire, justifiée à la fois par les statistiques internes et par le contexte externe trouvé.
+
+RÈGLE ABSOLUE : si get_ttfl_pick ne renvoie pas de pick (status "no_pick_yet" ou erreur), ne recommande AUCUN joueur, même à partir d'infos trouvées sur internet. Réponds simplement qu'aucun pick n'est calculé pour ce soir (avec la date renvoyée) et n'effectue pas de recherche web. Les articles en ligne peuvent être anciens : ne présente jamais un match comme étant « ce soir » sans que l'outil interne le confirme.`,
     prompt: question,
   });
 
