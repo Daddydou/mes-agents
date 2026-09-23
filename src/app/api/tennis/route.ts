@@ -8,15 +8,68 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY!
 );
 
-// Ordre standard des tours, pour trouver "le tour en cours"
-const ROUND_ORDER = ['R128', 'R64', 'R32', 'R16', 'QF', 'SF', 'F'];
+// Nombre de joueurs demandés à Tennis App par moitié de tableau. Large, car on
+// retire ensuite ceux que le stock a déjà pickés.
+const LIMITE_TENNIS_APP = 10;
 
-// Statuts d'un match pas encore joué (les autres : completed, retired, walkover, bye)
-const STATUTS_EN_ATTENTE = ['scheduled', 'live', 'in_progress'];
+// Réponse de GET /api/agent/tour-courant (Tennis App). Seuls les champs
+// utilisés sont typés ; le reste est laissé tel quel.
+const ReponseTourCourant = z.object({
+  ok: z.boolean(),
+  tournoi: z.unknown(),
+  tours: z.unknown(),
+  tour_en_cours: z.unknown(),
+  projections: z.unknown(),
+  recommandations: z.array(
+    z.object({
+      moitie: z.union([z.string(), z.number()]).nullable(),
+      joueurs: z.array(
+        z.object({
+          player_id: z.union([z.string(), z.number()]),
+          nom: z.string(),
+          esperance_points: z.number(),
+        })
+      ),
+    })
+  ),
+});
+
+// Appel serveur uniquement : le jeton ne doit jamais partir vers le navigateur.
+async function lireTourCourant(tournamentId: string) {
+  const base = process.env.TENNIS_APP_URL;
+  const jeton = process.env.AGENT_API_TOKEN;
+  if (!base || !jeton) {
+    return { erreur: 'TENNIS_APP_URL ou AGENT_API_TOKEN non défini.' } as const;
+  }
+
+  const url = new URL('/api/agent/tour-courant', base);
+  url.searchParams.set('tournoi', tournamentId);
+  url.searchParams.set('limite', String(LIMITE_TENNIS_APP));
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${jeton}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (e) {
+    return { erreur: `Tennis App injoignable : ${(e as Error).message}` } as const;
+  }
+  if (!res.ok) {
+    return { erreur: `Tennis App a répondu HTTP ${res.status}.` } as const;
+  }
+
+  const parse = ReponseTourCourant.safeParse(await res.json().catch(() => null));
+  if (!parse.success || !parse.data.ok) {
+    return { erreur: 'Réponse de Tennis App illisible ou en échec.' } as const;
+  }
+  return { donnees: parse.data } as const;
+}
 
 const get_tennis_recommendation = tool({
   description:
-    "Donne les meilleurs picks tennis disponibles pour le tour en cours d'un tournoi, en excluant les joueurs déjà pickés par ce stock et les joueurs déjà éliminés à ce tour.",
+    "Donne les meilleurs picks tennis du tour en cours d'un tournoi (calculés par Tennis App), par moitié de tableau, en excluant les joueurs déjà pickés par ce stock.",
   inputSchema: z.object({
     tournoi: z.string().describe("Nom (ou partie du nom) du tournoi, ex: 'Guadalajara'"),
     stock: z.enum(['daddy', 'laki', 'thomas']).default('daddy').describe("Le stock de picks à considérer"),
@@ -35,7 +88,26 @@ const get_tennis_recommendation = tool({
     }
     const tournamentId = tournaments[0].id;
 
-    // 2. Trouver le participant_id du stock demandé (null = Daddy)
+    // 2. Tour en cours et recommandations : logique de Tennis App
+    const tourCourant = await lireTourCourant(tournamentId);
+    if ('erreur' in tourCourant) {
+      return { status: 'tennis_app_indisponible', message: tourCourant.erreur };
+    }
+    const d = tourCourant.donnees;
+
+    if (d.tour_en_cours === null) {
+      return { status: 'tournoi_termine', tournoi: tournaments[0].name };
+    }
+    if (d.projections === 'absentes') {
+      return {
+        status: 'projections_absentes',
+        tournoi: tournaments[0].name,
+        tour: d.tour_en_cours,
+        message: 'Les projections de ce tour ne sont pas encore calculées. Réessaie plus tard.',
+      };
+    }
+
+    // 3. Trouver le participant_id du stock demandé (null = Daddy)
     let participantId: number | null = null;
     if (stock !== 'daddy') {
       const { data: participants } = await supabase
@@ -45,77 +117,24 @@ const get_tennis_recommendation = tool({
       participantId = participants?.[0]?.id ?? null;
     }
 
-    // 3. Déterminer le tour en cours : premier tour (dans l'ordre standard)
-    // qui a encore un match non terminé
-    const { data: matchesEnCours } = await supabase
-      .from('tn_matches')
-      .select('round')
-      .eq('tournament_id', tournamentId)
-      .in('status', STATUTS_EN_ATTENTE);
-
-    if (!matchesEnCours || matchesEnCours.length === 0) {
-      return { status: 'aucun_tour_en_cours', message: 'Aucun match en attente pour ce tournoi.' };
-    }
-    const roundsEnCours = [...new Set(matchesEnCours.map((m) => m.round))];
-    const tourActuel = roundsEnCours.sort(
-      (a, b) => ROUND_ORDER.indexOf(a) - ROUND_ORDER.indexOf(b)
-    )[0];
-
     // 4. Joueurs déjà pickés par ce stock sur ce tournoi (tous tours confondus)
     let picksQuery = supabase.from('tn_picks').select('player_id').eq('tournament_id', tournamentId);
     picksQuery = participantId === null
       ? picksQuery.is('participant_id', null)
       : picksQuery.eq('participant_id', participantId);
     const { data: dejaPickes } = await picksQuery;
-    const idsDejaPickes = dejaPickes?.map((p) => p.player_id) ?? [];
+    const idsDejaPickes = new Set((dejaPickes ?? []).map((p) => String(p.player_id)));
 
-    // 5. Joueurs dont le match de ce tour n'est plus en attente : on ne peut
-    // plus les picker pour ce tour, qu'ils aient gagné ou perdu. Couvre
-    // completed, retired, walkover et bye (qualifié sans jouer).
-    const { data: matchesDuTour } = await supabase
-      .from('tn_matches')
-      .select('player1_id, player2_id, status')
-      .eq('tournament_id', tournamentId)
-      .eq('round', tourActuel);
-
-    const idsDejaJoues = (matchesDuTour ?? [])
-      .filter((m) => !STATUTS_EN_ATTENTE.includes(m.status))
-      .flatMap((m) => [m.player1_id, m.player2_id])
-      .filter((id) => id != null);
-
-    const idsAExclure = [...new Set([...idsDejaPickes, ...idsDejaJoues])];
-
-    // 6. Les projections pour ce tour, triées par e_points
-    let projQuery = supabase
-      .from('tn_projections')
-      .select('player_id, e_points')
-      .eq('tournament_id', tournamentId)
-      .eq('from_round', tourActuel)
-      .eq('round', tourActuel)
-      .gt('e_points', 0)
-      .order('e_points', { ascending: false })
-      .limit(10);
-
-    if (idsAExclure.length > 0) {
-      projQuery = projQuery.not('player_id', 'in', `(${idsAExclure.join(',')})`);
-    }
-
-    const { data: projections, error: errP } = await projQuery;
-    if (errP) return { error: `Erreur Supabase (projections): ${errP.message}` };
-
-    // 7. Récupérer les noms des joueurs
-    const idsJoueurs = (projections ?? []).map((p) => p.player_id);
-    const { data: joueurs } = await supabase
-      .from('tn_players')
-      .select('id, name')
-      .in('id', idsJoueurs.length > 0 ? idsJoueurs : [-1]);
-
-    const recommandations = (projections ?? []).map((p) => ({
-      joueur: joueurs?.find((j) => j.id === p.player_id)?.name ?? `Joueur #${p.player_id}`,
-      e_points: p.e_points,
+    // 5. Recommandations de Tennis App, sans les joueurs déjà pickés.
+    // En demi-finale/finale il n'y a qu'un bloc, avec moitie: null.
+    const recommandations = d.recommandations.map((bloc) => ({
+      moitie: bloc.moitie,
+      joueurs: bloc.joueurs
+        .filter((j) => !idsDejaPickes.has(String(j.player_id)))
+        .map((j) => ({ joueur: j.nom, esperance_points: j.esperance_points })),
     }));
 
-    return { status: 'ok', tournoi: tournaments[0].name, tour: tourActuel, recommandations };
+    return { status: 'ok', tournoi: tournaments[0].name, tour: d.tour_en_cours, recommandations };
   },
 });
 
@@ -140,7 +159,9 @@ export async function POST(req: Request) {
       web_search: anthropic.tools.webSearch_20250305(),
     },
     stopWhen: ({ steps }) => steps.length >= 5,
-    system: `Tu es un conseiller de picks tennis expert. Utilise TOUJOURS d'abord l'outil get_tennis_recommendation pour connaître les meilleurs candidats du tour en cours. Si le tournoi n'est pas trouvé, propose la liste des tournois disponibles reçue. Ensuite, cherche sur internet (web_search) des infos complémentaires sur le ou les meilleurs joueurs recommandés : forme récente, blessure, surface, actualité du tournoi. Termine par une recommandation claire, justifiée par les statistiques internes ET le contexte externe.`,
+    system: `Tu es un conseiller de picks tennis expert. Utilise TOUJOURS d'abord l'outil get_tennis_recommendation pour connaître les meilleurs candidats du tour en cours. Si le tournoi n'est pas trouvé, propose la liste des tournois disponibles reçue. Les recommandations sont regroupées par moitié de tableau (champ "moitie", null en demi-finale/finale) : présente le meilleur candidat de chaque moitié. Ensuite, cherche sur internet (web_search) des infos complémentaires sur le ou les meilleurs joueurs recommandés : forme récente, blessure, surface, actualité du tournoi. Termine par une recommandation claire, justifiée par les statistiques internes ET le contexte externe.
+
+RÈGLE ABSOLUE : si l'outil ne renvoie pas de recommandations (status "tournoi_termine", "projections_absentes", "tennis_app_indisponible" ou erreur), ne recommande AUCUN joueur et n'effectue pas de recherche web. Explique simplement la situation (tournoi terminé, ou projections pas encore prêtes / Tennis App indisponible : réessayer plus tard).`,
     prompt: question,
   });
 
