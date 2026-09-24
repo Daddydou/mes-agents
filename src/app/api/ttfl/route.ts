@@ -2,6 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, tool } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
+import { construireTrace } from '@/lib/trace';
 
 // Connexion à ta base Supabase existante
 const supabase = createClient(
@@ -47,5 +48,5 @@ RÈGLE ABSOLUE : si get_ttfl_pick ne renvoie pas de pick (status "no_pick_yet" o
     prompt: question,
   });
 
-  return Response.json({ reponse: result.text });
+  return Response.json({ question, reponse: result.text, trace: construireTrace(result.steps) });
 }

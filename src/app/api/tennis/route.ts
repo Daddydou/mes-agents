@@ -2,6 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, tool } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
+import { construireTrace } from '@/lib/trace';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -165,5 +166,5 @@ RÈGLE ABSOLUE : si l'outil ne renvoie pas de recommandations (status "tournoi_t
     prompt: question,
   });
 
-  return Response.json({ reponse: result.text });
+  return Response.json({ question, reponse: result.text, trace: construireTrace(result.steps) });
 }
