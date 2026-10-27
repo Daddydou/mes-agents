@@ -415,3 +415,10 @@ Limites assumées :
   SECURITY DEFINER (ERROR), une fonction sans search_path fixe, une
   extension dans `public`, des fonctions SECURITY DEFINER appelables par
   anon, la protection contre les mots de passe divulgués désactivée.
+- **Mise en ligne** : migration 0005 validée par l'utilisateur et appliquée
+  (17 lignes d'historique, toutes avec leur fil ; RLS toujours active).
+  ⚠ Le code de cette fonctionnalité est parti dans le commit `10e275d`
+  (« RLS sur les 24 tables des autres apps… ») d'une autre session, qui a
+  commité tout le dossier, puis déployé en production à 21:09 UTC, avant
+  la migration. Vérifié : aucun mail traité entre ce déploiement et la
+  migration (dernier passage 20:40 UTC), aucune erreur Vercel.

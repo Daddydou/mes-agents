@@ -15,6 +15,7 @@
 --
 -- Aucune donnée supprimée. Tables toujours fermées (RLS sans policy) :
 -- les nouvelles colonnes héritent de ces droits.
+-- Validée et appliquée au projet « Cater40 » le 27/10/2026.
 -- Idempotent : rejouable sans risque.
 -- =====================================================================
 
