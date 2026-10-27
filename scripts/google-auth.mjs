@@ -6,10 +6,13 @@
 //
 // Le script ouvre la page de consentement Google, récupère le code sur
 // http://localhost:3456/callback, l'échange et AFFICHE le refresh token :
-// copie-le dans GOOGLE_REFRESH_TOKEN (.env.local puis Vercel). Il n'écrit
-// aucun fichier.
+// copie-le dans GOOGLE_REFRESH_TOKEN (.env.local puis Vercel).
+//
+// Avec --ecrire-env, il n'affiche RIEN : il écrit GOOGLE_REFRESH_TOKEN
+// directement dans .env.local (en remplaçant l'ancienne valeur).
 
 import http from 'node:http';
+import fs from 'node:fs';
 import { exec } from 'node:child_process';
 import { OAuth2Client } from 'google-auth-library';
 
@@ -66,6 +69,15 @@ const serveur = http.createServer(async (req, res) => {
       console.error('\nGoogle n’a pas renvoyé de refresh token. Retire l’accès de l’app sur');
       console.error('https://myaccount.google.com/permissions puis relance le script.');
       process.exitCode = 1;
+    } else if (process.argv.includes('--ecrire-env')) {
+      const ligne = `GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`;
+      let env = fs.readFileSync('.env.local', 'utf8');
+      env = /^GOOGLE_REFRESH_TOKEN=.*$/m.test(env)
+        ? env.replace(/^GOOGLE_REFRESH_TOKEN=.*$/m, ligne)
+        : `${env.replace(/\n*$/, '\n')}${ligne}\n`;
+      fs.writeFileSync('.env.local', env);
+      console.log('\nRefresh token écrit dans .env.local (non affiché).');
+      console.log('Droits accordés :', tokens.scope);
     } else {
       console.log('\nRefresh token (à mettre dans GOOGLE_REFRESH_TOKEN, ne le partage pas) :\n');
       console.log(tokens.refresh_token);
@@ -80,8 +92,14 @@ const serveur = http.createServer(async (req, res) => {
 });
 
 serveur.listen(PORT, () => {
-  console.log('Ouvre cette adresse si le navigateur ne s’ouvre pas tout seul :\n');
-  console.log(url, '\n');
+  if (process.argv.includes('--ecrire-env')) {
+    // L'adresse contient le client ID : on ne l'affiche pas dans ce mode.
+    console.log('Le navigateur s’ouvre sur la page de consentement Google…');
+    console.log('(S’il ne s’ouvre pas, relance le script sans --ecrire-env pour voir l’adresse.)');
+  } else {
+    console.log('Ouvre cette adresse si le navigateur ne s’ouvre pas tout seul :\n');
+    console.log(url, '\n');
+  }
   const ouvrir =
     process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
   exec(ouvrir, () => {});
