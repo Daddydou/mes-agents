@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { synchroniserColis } from '@/lib/colis/sync';
+import { reprendreColisEnCours } from '@/lib/colis/reprise';
 
 // Appelée toutes les 30 min par GitHub Actions (.github/workflows/colis-sync.yml).
 // Le proxy la laisse passer sans cookie : c'est ce jeton qui la protège.
@@ -26,6 +27,10 @@ export async function GET(req: Request) {
   const max = simulation && params.get('max') ? Math.min(Math.max(Number(params.get('max')) || 1, 1), 50) : undefined;
 
   try {
+    // ?reprise=1 : remise à jour unique des colis en cours (liens + code de retrait), voir reprise.ts.
+    if (params.get('reprise') === '1') {
+      return Response.json({ ok: true, ...(await reprendreColisEnCours({ simulation })) });
+    }
     const rapport = await synchroniserColis({ simulation, max });
     return Response.json({ ok: true, ...rapport });
   } catch (e) {

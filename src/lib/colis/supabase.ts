@@ -55,6 +55,10 @@ export type Colis = {
   fenetre_fin: string | null;
   lieu_livraison: string | null;
   url_suivi: string | null;
+  /** Code de retrait tel qu'écrit dans le mail ; effacé à la livraison ou à l'annulation. */
+  code_retrait: string | null;
+  /** Un mail du colis contient un QR code à présenter (l'image n'est pas conservée). */
+  qr_code: boolean;
   calendar_event_id: string | null;
   derniere_maj: string;
   created_at: string;
@@ -62,6 +66,7 @@ export type Colis = {
 
 export type LigneHistorique = {
   email_id: string | null;
+  thread_id: string | null;
   statut: string | null;
   resume: string | null;
   created_at: string;

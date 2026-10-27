@@ -61,6 +61,8 @@ export function nettoyerExtraction(e: Extraction): InfosColis {
     description: texte(e.description, 200),
     url_suivi: urlValide(e.url_suivi),
     lieu_livraison: texte(e.lieu_livraison, 500),
+    code_retrait: texte(e.code_retrait, 50),
+    qr_code_dans_mail: e.qr_code_dans_mail === true,
     statut: e.statut,
     // Un créneau sans date : la date est celle du créneau.
     date_livraison_prevue:
@@ -200,6 +202,11 @@ export function fusionner(actuel: Colis | null, infos: InfosColis, maintenant = 
     fenetre_fin = null;
   }
 
+  const statut = actuel ? statutRetenu(actuel.statut, infos.statut) : infos.statut;
+  // Code de retrait : jamais écrasé par null, mais effacé une fois le colis
+  // livré ou annulé (il ne sert plus). Les liens vers les mails, eux, restent.
+  const termine = statut === 'livree' || statut === 'annulee';
+
   return {
     valeurs: {
       marchand: garder('marchand'),
@@ -209,7 +216,9 @@ export function fusionner(actuel: Colis | null, infos: InfosColis, maintenant = 
       description: garder('description'),
       url_suivi: garder('url_suivi'),
       lieu_livraison: garder('lieu_livraison'),
-      statut: actuel ? statutRetenu(actuel.statut, infos.statut) : infos.statut,
+      code_retrait: termine ? null : garder('code_retrait'),
+      qr_code: !termine && (infos.qr_code_dans_mail || (actuel?.qr_code ?? false)),
+      statut,
       date_livraison_prevue: date,
       fenetre_debut,
       fenetre_fin,

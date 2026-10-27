@@ -47,7 +47,9 @@ export default function Confidentialite() {
           <li>
             <strong>Google Agenda, limité à son propre agenda</strong> (
             <code>calendar.app.created</code>) : elle crée et met à jour un agenda dédié, « 📦
-            Colis ». Elle n&apos;a pas accès aux autres agendas.
+            Colis », où chaque colis apparaît avec son statut, son code de retrait éventuel et des
+            liens vers ses mails (liens qui ne s&apos;ouvrent que dans la boîte Gmail du titulaire).
+            Elle n&apos;a pas accès aux autres agendas.
           </li>
         </ul>
       </Section>
@@ -63,7 +65,16 @@ export default function Confidentialite() {
             commande, courte description, statut, dates et créneau de livraison, lieu de livraison
             ou point relais, lien de suivi ;
           </li>
-          <li>pour chaque mail de livraison : son sujet et un résumé d&apos;une phrase ;</li>
+          <li>
+            le code de retrait du colis s&apos;il figure dans un mail, ou le simple fait qu&apos;un QR
+            code est à présenter (l&apos;image du QR code n&apos;est pas conservée). Ce code est
+            effacé dès que le colis est livré ou annulé ;
+          </li>
+          <li>
+            pour chaque mail de livraison : son sujet, un résumé d&apos;une phrase et ses
+            identifiants techniques Gmail (mail et conversation), qui servent uniquement à afficher
+            un lien vers ce mail dans l&apos;agenda « 📦 Colis » et sur la page de suivi ;
+          </li>
           <li>
             l&apos;identifiant technique Gmail des mails déjà analysés, pour ne pas les relire (sans
             sujet ni contenu pour les mails qui ne concernent pas un colis).

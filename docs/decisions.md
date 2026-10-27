@@ -319,3 +319,99 @@ Deux défauts constatés, corrigés dans le code :
   rapprochement, et un vrai appel d'extraction sur un faux mail (< 0,001 $).
 - Consigne d'extraction : « livré demain » = en transit, pas « en cours de
   livraison » (vu sur le faux mail de test).
+
+## 27/10/2026 : liens vers les mails et code de retrait (agent colis)
+
+- **Format du lien testé dans Gmail** (Chrome, compte lolo.rms) sur un cas
+  réel piégeux : Gmail range les avis Colissimo de Veepee ET d'Amazon dans
+  le MÊME fil (même sujet « Votre colis arrive ! »).
+  - `#all/<id du fil>` : ouvre la conversation sur le mail le plus RÉCENT
+    → affichait le mail Amazon pour la ligne Veepee. **Écarté**, alors que
+    la demande le préférait.
+  - `#all/<id du message>` : bon mail, sauf pour le 1er mail d'un fil (son
+    id est aussi celui du fil, Gmail le lit comme un fil) → même défaut.
+  - `#all/%23msg-f:<décimal>` seul : renvoie à la liste. Écarté.
+  - **Retenu** : `#all/%23thread-f:<fil>|msg-f:<message>` (ids en décimal),
+    la forme vers laquelle Gmail redirige lui-même : ouvre toujours le bon
+    mail, déplié. Il faut le fil ET le message → colonne
+    `colis_historique.thread_id`. Sans fil connu : repli sur `#all/<id>`.
+- **Migration 0005** (`thread_id` + `code_retrait` + `qr_code`) : le numéro
+  0004 était déjà pris par `0004_rls_autres_apps.sql`, apparu pendant cette
+  session (autre travail en cours). `thread_id` est rempli pour l'existant
+  à partir de `colis_emails_traites`, qui gardait déjà le fil de chaque
+  mail.
+- **Ordre de la description** : la demande met en tête à la fois le code et
+  « 📧 Dernier mail ». Choix : le code d'abord (c'est ce qu'on cherche au
+  guichet), puis le dernier mail, l'historique (5 lignes, plus récente
+  d'abord, chacune avec SON lien), puis statut / transporteur / suivi /
+  lieu. Le texte d'une ligne d'historique reste le résumé d'une phrase déjà
+  stocké (pas de nouvel appel Claude).
+- **Code de retrait** : recopié tel quel par Claude (consigne : jamais un
+  n° de suivi, de commande ou de client ; null s'il est absent), coupé à 50
+  caractères par le code. Jamais écrasé par null ; effacé (avec l'indicateur
+  QR) dès que le statut devient livré ou annulé. On ne garde que le fait
+  qu'un QR code existe, jamais l'image. 🔑 dans le titre si code OU QR.
+- **Reprise des colis en cours** : `GET /api/colis/sync?reprise=1`
+  (`&dryRun=1` pour simuler), même jeton. Relit dans Gmail chaque mail de
+  l'historique (fil + code, un appel Claude par mail) et ne fait que METTRE
+  À JOUR l'événement existant : jamais de création, donc pas de doublon.
+  Les colis livrés ne sont pas touchés. La simulation ne lit que des
+  colonnes d'avant la migration : elle tourne avant de l'appliquer.
+- **dryRun de reprise** (6 mails, ≈ 0,003 $, rien d'écrit) : 3 colis en
+  cours, fils retrouvés pour les 6 mails (identiques à ceux de
+  `colis_emails_traites`), **aucun code ni QR** dans ces mails (normal : ils
+  sont « en transit », le code arrive avec l'avis « disponible »). 2
+  événements à modifier (Veepee, Amazon Swiffer) ; PSG n'a pas de date donc
+  pas d'événement.
+- **Confidentialité** : la page mentionne maintenant le code de retrait (ou
+  la présence d'un QR), son effacement à la livraison, et les identifiants
+  Gmail (mail + conversation) gardés pour les liens.
+- Coût : extraction un peu plus longue (2 champs) ≈ +5 % par mail, toujours
+  ≈ 0,0005 $. Aucune recherche web.
+- Vérifié après déploiement : fonctions en `cdg1` (en-tête `X-Vercel-Id:
+  cdg1::cdg1`), synchro colis OK depuis Paris.
+
+## 27/10/2026 : RLS sur les 24 tables des autres apps (migration 0004)
+
+Alerte critique Supabase « rls_disabled » : avec la clé anon (visible dans
+le code des sites), n'importe qui pouvait lire, modifier et vider 24
+tables de cater40, cultureg, Ligue1, cdm/cdm26/hub. **Appliquée** le
+27/10/2026 ; l'alerte a disparu du rapport de sécurité Supabase.
+
+Méthode : inventaire du code de chaque app (opérations réellement faites,
+type de client : navigateur anon, session utilisateur, ou clé service qui
+contourne la RLS), activité réelle des tables (`pg_stat_user_tables`),
+règles dormantes, fonctions SQL appelées. Une règle par opération
+utilisée, rien de plus.
+
+| App | Tables | Ce qui reste permis (clé anon / session) |
+|---|---|---|
+| Ligue1 | l1_seasons, l1_clubs, l1_season_clubs, l1_players, l1_season_squads, l1_phases, l1_gameweeks, l1_player_ratings | lecture seule (les imports passent par la clé service) |
+| Ligue1 | l1_participants | lecture ; inscription **de soi-même uniquement, jamais en admin** ; règle existante `participants_update` (sa propre ligne) réactivée |
+| CDM (cdm26, hub, cdm) | cdm_groups, cdm_nations, cdm_players, cdm_matches, fantasy_phase_limits | lecture seule (écritures admin via la clé service) |
+| hub | cdm_group_members | ajout seulement (inscription, parfois avant la session) ; plus de lecture publique |
+| hub, cdm26 | cdm_push_subscriptions | chacun ne voit / modifie **que son propre abonnement** |
+| cater40 | rooms | lecture, modification (plus d'ajout ni de suppression de salle) |
+| cater40 | players, answers | lecture, ajout/modif (players), suppression (nécessaire à la fonction `reset_room`, qui agit avec les droits de l'appelant) |
+| cultureg | cg_locked_questions | lecture, ajout, modif, suppression (tout est utilisé par l'animateur) |
+| — | cdm_pick_third_players, cdm_match_leaderboard, l1_player_usage, cdm_notification_log | verrouillées (inutilisées, ou clé service seulement) |
+
+Vérifié avec la clé anon après application : lectures attendues OK,
+tables verrouillées invisibles, modification d'une vraie ligne de
+référence refusée (0 ligne modifiée, test sans effet).
+
+Limites assumées :
+- cater40 et cultureg n'ont pas de comptes : ce que le jeu fait depuis le
+  navigateur (modifier un score, supprimer des joueurs via reset_room),
+  quelqu'un muni de la clé anon peut encore le faire. Seul un vrai login
+  animateur, ou des fonctions SQL dédiées, réduirait ça.
+- Pas pu tester les apps elles-mêmes en conditions réelles : si l'une
+  casse, chercher d'abord une opération oubliée dans l'inventaire (erreur
+  « new row violates row-level security policy » ou 0 ligne renvoyée), et
+  ajouter la règle correspondante dans une migration 0005.
+- `participants_update` (Ligue1) laisse un participant modifier sa propre
+  ligne, y compris `is_admin`. Règle préexistante, laissée telle quelle.
+- Autres alertes Supabase déjà présentes, non traitées : une vue en
+  SECURITY DEFINER (ERROR), une fonction sans search_path fixe, une
+  extension dans `public`, des fonctions SECURITY DEFINER appelables par
+  anon, la protection contre les mots de passe divulgués désactivée.

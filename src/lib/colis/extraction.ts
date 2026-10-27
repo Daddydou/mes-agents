@@ -27,6 +27,11 @@ export const SchemaExtraction = z.object({
     .nullable()
     .describe('Adresse, ou nom + adresse du point relais avec ses horaires si présents.'),
   statut: z.enum(STATUTS),
+  code_retrait: z
+    .string()
+    .nullable()
+    .describe('Code à donner pour retirer ou recevoir le colis, recopié tel qu’écrit dans le mail. Jamais inventé.'),
+  qr_code_dans_mail: z.boolean().describe('true si le mail contient un QR code à présenter pour retirer ou recevoir le colis.'),
   date_livraison_prevue: z.string().nullable().describe('YYYY-MM-DD'),
   fenetre_debut: z.string().nullable().describe('ISO 8601 avec décalage horaire de Paris, ex. 2026-10-28T09:00:00+01:00'),
   fenetre_fin: z.string().nullable().describe('ISO 8601 avec décalage horaire de Paris'),
@@ -48,6 +53,8 @@ Règles :
 - Dates : la SEULE date de référence est la date de réception du mail, donnée avant le mail (fuseau ${FUSEAU}). « Aujourd'hui » = ce jour-là, « demain » = le lendemain, « jeudi » = le prochain jeudi à partir de ce jour-là. date_livraison_prevue au format YYYY-MM-DD. Si le mail donne une période (« entre le 28 et le 30 »), prends la date la plus tardive.
 - fenetre_debut / fenetre_fin : seulement si un créneau horaire est donné, en ISO 8601 avec le décalage de Paris (+01:00 en hiver, +02:00 en été).
 - numero_suivi : le numéro de suivi transporteur, sans espaces. Ne le confonds pas avec le numéro de commande.
+- code_retrait : le code de retrait, de livraison ou de consigne à donner pour obtenir le colis (ex. « Code de retrait : 482913 », « code à communiquer au livreur »), recopié EXACTEMENT comme dans le mail. Jamais un numéro de suivi, de commande ou de client. Si le mail n'en donne pas, null : ne l'invente jamais.
+- qr_code_dans_mail : true seulement si le mail dit qu'un QR code (ou code-barres) est à présenter pour retirer ou recevoir le colis ; false sinon (y compris pour un QR code de pub ou d'appli).
 - description : courte, en français, d'après les articles listés (ex. « Câble USB-C ×2 »).
 - resume : une phrase en français.
 - confiance : haute si les infos clés sont explicites, moyenne si certaines sont déduites du contexte, faible si le mail est ambigu.`;

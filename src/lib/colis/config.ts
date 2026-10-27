@@ -39,3 +39,6 @@ export const ANALYSES_EN_PARALLELE = 5;
 export const BUDGET_TEMPS_MS = 45_000;
 
 export const NOM_AGENDA = '📦 Colis';
+
+/** Compte Gmail lu par l'agent : sert à ouvrir les liens vers les mails dans le bon compte. */
+export const COMPTE_GMAIL = 'lolo.rms@gmail.com';

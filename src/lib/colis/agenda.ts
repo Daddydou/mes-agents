@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Agenda } from './google';
 import { FUSEAU, NOM_AGENDA } from './config';
+import { lienMail } from './gmail';
 import { LIBELLES_STATUT, type Colis, type LigneHistorique, type SupabaseColis } from './supabase';
 
 export type ActionAgenda = 'cree' | 'modifie' | 'supprime' | 'aucune';
@@ -54,7 +55,8 @@ export function titreEvenement(c: Colis): string {
   const prefixe = PREFIXES[c.statut];
   const qui = c.marchand ?? c.transporteur ?? 'Colis';
   const quoi = c.description ?? c.numero_suivi ?? 'colis';
-  return `${prefixe ? `${prefixe} ` : ''}📦 ${qui} — ${quoi}`;
+  const cle = c.code_retrait || c.qr_code ? ' 🔑' : '';
+  return `${prefixe ? `${prefixe} ` : ''}📦${cle} ${qui} — ${quoi}`;
 }
 
 const echapper = (s: string) =>
@@ -66,6 +68,17 @@ const jourFr = (iso: string) =>
   );
 const horodatageFr = (d: Date) =>
   new Intl.DateTimeFormat('fr-FR', { timeZone: FUSEAU, dateStyle: 'short', timeStyle: 'short' }).format(d);
+/** « 27/10 14:32 » */
+const jourHeureFr = (d: Date) =>
+  new Intl.DateTimeFormat('fr-FR', {
+    timeZone: FUSEAU, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).format(d).replace(',', '');
+
+const lien = (url: string) => `<a href="${echapper(url)}">${echapper(url)}</a>`;
+const lienLigne = (h: LigneHistorique) => (h.email_id ? lienMail(h.email_id, h.thread_id) : null);
+
+/** Ce que l'historique affiche d'une ligne, sans le préfixe technique de changement de date. */
+export const resumeAffiche = (h: LigneHistorique) => (h.resume ?? '').replace(RE_CHANGEMENT, '');
 
 /** Préfixe écrit dans colis_historique.resume quand la date prévue change. */
 export const changementDate = (avant: string, apres: string) => `Date modifiée : ${avant} → ${apres}. `;
@@ -73,7 +86,28 @@ const RE_CHANGEMENT = /^Date modifiée : (\d{4}-\d{2}-\d{2}) → (\d{4}-\d{2}-\d
 
 /** Description de l'événement (Google Agenda accepte un HTML simple). */
 export function descriptionEvenement(c: Colis, historique: LigneHistorique[], maintenant = new Date()): string {
-  const lignes: string[] = [`<b>Statut :</b> ${LIBELLES_STATUT[c.statut]}`];
+  const lignes: string[] = [];
+
+  // En tête : ce qu'il faut au moment du retrait, puis le dernier mail.
+  if (c.code_retrait) lignes.push(`🔑 Code : <b>${echapper(c.code_retrait)}</b>`);
+  else if (c.qr_code) lignes.push('📱 QR code à présenter : voir le mail');
+  const dernier = historique.find((h) => h.email_id);
+  if (dernier) lignes.push(`📧 Dernier mail : ${lien(lienLigne(dernier)!)}`);
+
+  // Historique : les 5 dernières mises à jour, la plus récente d'abord, chacune avec SON mail.
+  const recents = historique.slice(0, 5);
+  if (recents.length) {
+    if (lignes.length) lignes.push('');
+    lignes.push('<b>Dernières mises à jour :</b>');
+    for (const h of recents) {
+      const url = lienLigne(h);
+      lignes.push(
+        `${jourHeureFr(new Date(h.created_at))} — ${echapper(resumeAffiche(h))}${url ? ` — ${lien(url)}` : ''}`,
+      );
+    }
+  }
+
+  lignes.push('', `<b>Statut :</b> ${LIBELLES_STATUT[c.statut]}`);
   if (c.transporteur) lignes.push(`<b>Transporteur :</b> ${echapper(c.transporteur)}`);
   if (c.numero_suivi) lignes.push(`<b>Numéro de suivi :</b> ${echapper(c.numero_suivi)}`);
   if (c.numero_commande) lignes.push(`<b>Commande :</b> ${echapper(c.numero_commande)}`);
@@ -89,14 +123,6 @@ export function descriptionEvenement(c: Colis, historique: LigneHistorique[], ma
     }
   }
 
-  const recents = historique.slice(0, 5);
-  if (recents.length) {
-    lignes.push('', '<b>Dernières mises à jour :</b>');
-    for (const h of recents) {
-      const resume = (h.resume ?? '').replace(RE_CHANGEMENT, '');
-      lignes.push(`• ${horodatageFr(new Date(h.created_at))} — ${echapper(resume)}`);
-    }
-  }
   lignes.push('', `<i>Mis à jour le ${horodatageFr(maintenant)} par l’agent colis</i>`);
   return lignes.join('<br>');
 }

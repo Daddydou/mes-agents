@@ -200,6 +200,7 @@ export async function synchroniserColis(options: { simulation: boolean; max?: nu
         {
           colis_id: colis.id,
           email_id: mail.id,
+          thread_id: mail.threadId,
           statut: extraction.statut,
           resume,
           created_at: mail.recuLe.toISOString(),
@@ -259,7 +260,7 @@ async function mettreAJourAgenda(
 ): Promise<ActionAgenda> {
   const { data, error } = await db
     .from('colis_historique')
-    .select('email_id, statut, resume, created_at')
+    .select('email_id, thread_id, statut, resume, created_at')
     .eq('colis_id', colis.id)
     .order('created_at', { ascending: false })
     .limit(20);

@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { sessionValide } from '@/auth/garde';
 import { FUSEAU } from '@/lib/colis/config';
-import { LIBELLES_STATUT, supabaseColis, type Colis, type Statut } from '@/lib/colis/supabase';
+import { lienMail } from '@/lib/colis/gmail';
+import { resumeAffiche } from '@/lib/colis/agenda';
+import { LIBELLES_STATUT, supabaseColis, type Colis, type LigneHistorique, type Statut } from '@/lib/colis/supabase';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Colis' };
@@ -25,10 +27,38 @@ const jour = (d: string) =>
   );
 const heure = (d: string) =>
   new Intl.DateTimeFormat('fr-FR', { timeZone: FUSEAU, timeStyle: 'short' }).format(new Date(d));
+const jourHeure = (d: string) =>
+  new Intl.DateTimeFormat('fr-FR', {
+    timeZone: FUSEAU, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(d)).replace(',', '');
 
-function Carte({ c }: { c: Colis }) {
+type Ligne = LigneHistorique & { colis_id: string };
+
+function LienMail({ h, children }: { h: Ligne; children: React.ReactNode }) {
+  if (!h.email_id) return <>{children}</>;
+  return (
+    <a href={lienMail(h.email_id, h.thread_id)} target="_blank" rel="noopener noreferrer" className="text-sky-700 underline">
+      {children}
+    </a>
+  );
+}
+
+function Carte({ c, historique }: { c: Colis; historique: Ligne[] }) {
+  const dernier = historique.find((h) => h.email_id);
   return (
     <li className="rounded-lg border border-zinc-200 p-3">
+      {c.code_retrait ? (
+        <p className="mb-2 rounded-md bg-amber-50 px-2 py-1 text-sm text-amber-900">
+          🔑 Code : <span className="font-mono text-base font-semibold tracking-wider">{c.code_retrait}</span>
+        </p>
+      ) : (
+        c.qr_code && (
+          <p className="mb-2 rounded-md bg-amber-50 px-2 py-1 text-sm text-amber-900">
+            📱 QR code à présenter :{' '}
+            {dernier ? <LienMail h={dernier}>voir le mail</LienMail> : 'voir le mail'}
+          </p>
+        )
+      )}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="font-medium truncate">{c.marchand ?? c.transporteur ?? 'Colis'}</p>
@@ -55,8 +85,44 @@ function Carte({ c }: { c: Colis }) {
           Suivre {c.numero_suivi ?? 'le colis'}
         </a>
       )}
+      {dernier && (
+        <p className="mt-2 text-sm">
+          📧 <LienMail h={dernier}>Dernier mail</LienMail>
+        </p>
+      )}
+      {historique.length > 0 && (
+        <details className="mt-2 text-xs text-zinc-600">
+          <summary className="cursor-pointer">Dernières mises à jour</summary>
+          <ul className="mt-1 space-y-1">
+            {historique.slice(0, 5).map((h) => (
+              <li key={`${h.email_id}-${h.created_at}`}>
+                {jourHeure(h.created_at)} — {resumeAffiche(h)}
+                {h.email_id && (
+                  <>
+                    {' — '}
+                    <LienMail h={h}>mail</LienMail>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </li>
   );
+}
+
+/** Historique des colis affichés, le plus récent d'abord, regroupé par colis. */
+async function chargerHistorique(ids: string[]) {
+  const parColis = new Map<string, Ligne[]>();
+  if (!ids.length) return { parColis, error: null };
+  const { data, error } = await supabaseColis()
+    .from('colis_historique')
+    .select('colis_id, email_id, thread_id, statut, resume, created_at')
+    .in('colis_id', ids)
+    .order('created_at', { ascending: false });
+  for (const h of (data ?? []) as Ligne[]) parColis.set(h.colis_id, [...(parColis.get(h.colis_id) ?? []), h]);
+  return { parColis, error };
 }
 
 async function chargerColis() {
@@ -83,7 +149,10 @@ export default async function PageColis() {
   if (!(await sessionValide())) redirect('/login?next=/colis');
 
   const [enCours, livres] = await chargerColis();
-  const erreur = enCours.error ?? livres.error;
+  const affiches = [...((enCours.data ?? []) as Colis[]), ...((livres.data ?? []) as Colis[])];
+  const historique = await chargerHistorique(affiches.map((c) => c.id));
+  const erreur = enCours.error ?? livres.error ?? historique.error;
+  const carte = (c: Colis) => <Carte key={c.id} c={c} historique={historique.parColis.get(c.id) ?? []} />;
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-6">
@@ -92,14 +161,14 @@ export default async function PageColis() {
 
       <h2 className="mt-6 mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">En cours</h2>
       {enCours.data?.length ? (
-        <ul className="space-y-2">{(enCours.data as Colis[]).map((c) => <Carte key={c.id} c={c} />)}</ul>
+        <ul className="space-y-2">{(enCours.data as Colis[]).map(carte)}</ul>
       ) : (
         <p className="text-sm text-zinc-500">Aucun colis en cours.</p>
       )}
 
       <h2 className="mt-8 mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">Livrés ces 7 derniers jours</h2>
       {livres.data?.length ? (
-        <ul className="space-y-2">{(livres.data as Colis[]).map((c) => <Carte key={c.id} c={c} />)}</ul>
+        <ul className="space-y-2">{(livres.data as Colis[]).map(carte)}</ul>
       ) : (
         <p className="text-sm text-zinc-500">Rien de livré cette semaine.</p>
       )}

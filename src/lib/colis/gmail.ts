@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Gmail } from './google';
-import { TAILLE_MAX_CORPS } from './config';
+import { COMPTE_GMAIL, TAILLE_MAX_CORPS } from './config';
 
 /** Un mail prêt à être analysé. Le corps ne quitte jamais la mémoire du serveur. */
 export type Mail = {
@@ -115,4 +115,22 @@ function nettoyer(texte: string): string {
 
 function tronquer(texte: string, max: number): string {
   return texte.length <= max ? texte : `${texte.slice(0, max)}\n[… mail tronqué]`;
+}
+
+/**
+ * Lien qui ouvre UN mail précis dans Gmail (testé le 27/10/2026, voir
+ * docs/decisions.md). `#all/<id du fil>` ouvre la conversation sur son mail
+ * le plus RÉCENT : faux quand Gmail range deux avis Colissimo dans le même
+ * fil. `#all/<id du message>` échoue pour le 1er mail d'un fil (son id est
+ * aussi celui du fil). La forme `thread-f:<fil>|msg-f:<message>` (ids en
+ * décimal) ouvre toujours le bon mail ; sans fil connu, on se rabat sur l'id
+ * du message.
+ */
+export function lienMail(emailId: string, threadId: string | null): string {
+  const base = `https://mail.google.com/mail/?authuser=${COMPTE_GMAIL}#all/`;
+  const decimal = (hex: string) => BigInt(`0x${hex}`).toString();
+  if (!threadId || !/^[0-9a-f]{1,16}$/i.test(threadId) || !/^[0-9a-f]{1,16}$/i.test(emailId)) {
+    return `${base}${encodeURIComponent(emailId)}`;
+  }
+  return `${base}${encodeURIComponent(`#thread-f:${decimal(threadId)}|msg-f:${decimal(emailId)}`)}`;
 }
