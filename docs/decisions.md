@@ -68,3 +68,111 @@
 - `CLAUDE.md` : suppression des `\#` et `\-` échappés et des lignes vides en
   double, chemins corrigés (`src/app/...`), retour de l'import `@AGENTS.md`
   (règles Next.js 16 que `next dev` recrée de toute façon).
+
+## 27/10/2026 : agent colis (branche `feature/agent-colis`)
+
+Mission : lire les mails de livraison de lolo.rms@gmail.com, suivre chaque
+colis dans Supabase et tenir à jour un agenda Google « 📦 Colis ».
+
+### Architecture retenue (celle de la mission)
+
+Gmail (lecture) → Claude (comprendre UN mail, **sans aucun outil**) → code
+(rapprochement) → Supabase (état + historique) → Google Agenda. Déclenché
+toutes les 30 min par GitHub Actions sur `GET /api/colis/sync`.
+
+### Écarts à la mission, et pourquoi
+
+1. **`generateObject` → `generateText` + `Output.object`** : `generateObject`
+   est marqué « deprecated » dans AI SDK 7 (`node_modules/ai`). Même résultat
+   (objet validé par le schéma zod), API actuelle.
+2. **Pas de `temperature: 0`** : `claude-haiku-5-5` refuse ce réglage
+   (erreur 400 côté API, le fournisseur AI SDK l'ignore avec un
+   avertissement). À la place : effort de réflexion `low`, suffisant pour
+   remplir un schéma et moins cher.
+3. **Pas de Basic Auth ni de `COLIS_DASHBOARD_PASSWORD` pour `/colis`** :
+   l'app a déjà un mot de passe (`APP_PASSWORD`, cookie signé, `src/proxy.ts`)
+   qui couvre toutes les pages. Une Basic Auth en plus aurait fait deux
+   mots de passe et deux fenêtres de connexion. La page revérifie la session
+   elle-même (elle lit des données perso).
+4. **`@googleapis/gmail` + `@googleapis/calendar`** au lieu de `googleapis` :
+   ce sont les mêmes clients officiels, découpés par API. `googleapis`
+   embarque les ~300 API Google (plus de 100 Mo).
+5. **Rappel la veille à 20 h, pas le matin à 8 h** : pour un événement
+   « journée entière », l'API Google n'accepte qu'un rappel AVANT le début
+   de l'événement (minuit). « Le jour même à 8 h » serait un délai négatif,
+   refusé. La veille au soir est le plus proche possible.
+6. **Rapprochement n°2 (marchand + n° de commande)** : ignoré si les deux
+   colis ont chacun un numéro de suivi différent. Une commande Amazon part
+   souvent en plusieurs colis ; sans cette exception, ils seraient fusionnés.
+
+### Ajouts (non demandés, mais nécessaires)
+
+- **Exception à la règle « lecture seule »** : l'agent colis écrit dans
+  Supabase (tables `colis*` uniquement) et dans SON agenda. Ce n'est jamais
+  Claude qui écrit : Claude n'a aucun outil, c'est le code de la route qui
+  décide et écrit. Règle mise à jour dans `CLAUDE.md`.
+- **Clé service role** (`SUPABASE_SERVICE_ROLE_KEY`, demandée par la mission)
+  plutôt que le schéma habituel (clé anon + fonction SECURITY DEFINER) : la
+  clé anon est partagée avec les autres apps du projet, ouvrir ces tables à
+  anon rendrait adresses et numéros de suivi lisibles par toutes. Limite :
+  la clé service role contourne toute la RLS du projet. Elle ne vit que côté
+  serveur (`server-only` fait échouer le build si on l'importe côté
+  navigateur).
+- **Proxy** : `/api/colis/sync` passe sans cookie (GitHub Actions n'en a
+  pas) ; la route exige `Authorization: Bearer <CRON_SECRET>` (comparaison à
+  temps constant, et tout est refusé si `CRON_SECRET` n'est pas défini).
+- **Migration 0003** (pas encore appliquée, à valider) : celle de la mission,
+  plus une contrainte sur les statuts, un `revoke` explicite pour anon et
+  authenticated, un index sur le n° de commande, et un index unique
+  `(colis_id, email_id)` dans l'historique.
+- **Reprise sans doublon** : un mail n'est marqué « traité » qu'à la toute
+  fin. Si une étape plante (Supabase, agenda), il est repris au passage
+  suivant : l'historique ne se duplique pas (index unique), l'événement est
+  mis à jour et non recréé (`calendar_event_id`, sinon recherche par
+  `colis_id` dans les propriétés privées de l'événement).
+- **Historique daté à la réception du mail**, pas au traitement : le premier
+  passage traite 14 jours d'un coup.
+- **Créneau horaire effacé si la date change sans nouveau créneau** : sinon
+  l'agenda afficherait un créneau d'un autre jour. C'est la seule
+  exception à « ne jamais écraser par null ».
+- **Confiance faible** : historique enregistré, aucune action sur l'agenda
+  (ni création ni mise à jour).
+- **Analyse en parallèle (5 mails à la fois)** et arrêt d'en entamer de
+  nouveaux après 45 s : 15 mails à la suite risquaient de dépasser les 60 s
+  de la route. Les mails sont remis dans l'ordre chronologique avant
+  l'enregistrement.
+- **dryRun** : accepte `?max=N` (jusqu'à 50) pour voir plus de mails d'un
+  coup pendant le réglage. Il fonctionne même avant la migration (il fait
+  alors comme si aucun mail n'avait été vu), et il simule en mémoire les colis
+  « qui auraient été créés » pour que deux mails du même colis se
+  rapprochent.
+- **Événements « disponibles »** (`transparency: transparent`) : un colis
+  ne doit pas bloquer un créneau dans l'agenda.
+- **Confidentialité** : on ne loggue jamais un objet d'erreur complet (il
+  peut contenir le mail envoyé à Claude), seulement son message. Le workflow
+  GitHub n'affiche que des compteurs.
+
+### Choix écartés
+
+- **Vercel AI Gateway** : la mission demande `@ai-sdk/anthropic` en direct,
+  comme les autres agents du projet.
+- **Label Gmail « traité »** : il faudrait un scope en écriture sur Gmail. On
+  mémorise les `email_id` dans `colis_emails_traites`.
+
+### Coût estimé
+
+- Claude Haiku 5.5 : 0,10 $ / million de tokens en entrée, 0,50 $ en sortie.
+  Un mail ≈ 2 500 tokens en entrée + 400 en sortie ≈ **0,0005 $ par mail**.
+  Un passage sans nouveau mail ne coûte **rien** côté Claude. Aucune
+  recherche web.
+- Premier passage : jusqu'à 15 mails ≈ 0,01 $. Les dryRun coûtent pareil
+  (ils appellent Claude).
+- GitHub Actions : 48 lancements par jour. Gratuit si le dépôt est public ;
+  s'il est privé, chaque lancement compte pour 1 minute → ~1 440 min/mois
+  sur les 2 000 gratuites.
+
+### Reste à faire
+
+Appliquer la migration (après validation), configurer Google Cloud, lancer
+le dryRun sur les vrais mails, puis le premier vrai passage, le déploiement
+Vercel et l'activation du workflow.

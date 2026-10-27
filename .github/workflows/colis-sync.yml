@@ -1,0 +1,34 @@
+# Agent colis : lance /api/colis/sync toutes les 30 minutes.
+# (Le cron Vercel gratuit ne tourne qu'une fois par jour.)
+#
+# Secrets à créer dans le dépôt GitHub (Settings > Secrets and variables > Actions) :
+#   COLIS_SYNC_URL : https://<ton-app>.vercel.app/api/colis/sync
+#   CRON_SECRET    : la même valeur que CRON_SECRET sur Vercel
+#
+# Remarque : GitHub peut retarder les tâches planifiées de quelques minutes,
+# et les suspend après 60 jours sans activité sur le dépôt.
+name: colis-sync
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # bouton « Run workflow » pour un lancement manuel
+
+permissions: {} # ce workflow n'a besoin d'aucun droit sur le dépôt
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Appeler la synchro des colis
+        env:
+          COLIS_SYNC_URL: ${{ secrets.COLIS_SYNC_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail --silent --show-error --max-time 90 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$COLIS_SYNC_URL" \
+            -o reponse.json
+          # Résumé sans détail des mails (les logs Actions peuvent être visibles).
+          jq '{mails_analyses, ignores, colis_crees, colis_mis_a_jour, evenements, restant_pour_le_prochain_passage, nb_erreurs: (.erreurs | length)}' reponse.json

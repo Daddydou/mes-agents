@@ -16,6 +16,10 @@ export function proxy(request: NextRequest) {
 
   if (pathname === '/login') return NextResponse.next();
 
+  // Appel machine (GitHub Actions) : pas de cookie possible. La route
+  // vérifie elle-même le jeton `Authorization: Bearer <CRON_SECRET>`.
+  if (pathname === '/api/colis/sync') return NextResponse.next();
+
   if (verifierJeton(request.cookies.get(COOKIE_NAME)?.value)) {
     return NextResponse.next();
   }
