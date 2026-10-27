@@ -2,7 +2,7 @@ import 'server-only';
 import { clientsGoogle, type Agenda } from './google';
 import { listerMails, lireMail, type Mail } from './gmail';
 import { extraire, type Extraction } from './extraction';
-import { fusionner, nettoyerExtraction, trouverColis, type InfosColis } from './rapprochement';
+import { fusionner, memeMarchand, nettoyerExtraction, trouverColis, type InfosColis } from './rapprochement';
 import { changementDate, idAgendaColis, synchroniserEvenement, type ActionAgenda } from './agenda';
 import { supabaseColis, type Colis, type LigneHistorique, type SupabaseColis } from './supabase';
 import { ANALYSES_EN_PARALLELE, BUDGET_TEMPS_MS, MAX_MAILS_PAR_PASSAGE, REQUETE_GMAIL } from './config';
@@ -287,7 +287,7 @@ async function trouverColisSimulation(db: SupabaseColis, infos: InfosColis, simu
       (infos.marchand &&
         infos.numero_commande &&
         c.numero_commande === infos.numero_commande &&
-        c.marchand?.toLowerCase() === infos.marchand.toLowerCase() &&
+        memeMarchand(c.marchand, infos.marchand) &&
         !(c.numero_suivi && infos.numero_suivi)),
   );
   if (enMemoire) return enMemoire;

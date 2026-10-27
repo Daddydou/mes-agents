@@ -70,8 +70,28 @@ export function nettoyerExtraction(e: Extraction): InfosColis {
   };
 }
 
-const memeMarchand = (a: string | null, b: string | null) =>
-  !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+/** « Monoprix.fr », « MONOPRIX », « Monoprix » → « monoprix ». */
+function cleMarchand(m: string): string {
+  return m
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\.(fr|com|co\.uk|de|es|it|eu|net)\b/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Même marchand, à l'écriture près : Claude n'écrit pas toujours le nom
+ * pareil d'un mail à l'autre (vu au dryRun : « Monoprix.fr » / « Monoprix »).
+ * « Amazon » et « Amazon EU SARL » correspondent aussi (l'un contient l'autre).
+ */
+export function memeMarchand(a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;
+  const ka = cleMarchand(a);
+  const kb = cleMarchand(b);
+  if (!ka || !kb) return false;
+  return ka === kb || (Math.min(ka.length, kb.length) >= 4 && (ka.includes(kb) || kb.includes(ka)));
+}
 
 /**
  * Règles de rapprochement, dans l'ordre :

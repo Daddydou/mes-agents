@@ -227,3 +227,31 @@ Vercel et l'activation du workflow.
 - **Police Geist conservée** (décision de l'utilisateur) : l'alerte de
   design « police trop répandue » est désactivée pour Geist
   (`.impeccable/config.json`).
+
+## 27/10/2026 : réglages après le dryRun sur les vrais mails
+
+Trois simulations (`?dryRun=1&max=50`, ~0,03 $ chacune, rien d'écrit) sur
+les 50 plus anciens des 59 mails candidats.
+
+- **Dates fausses pour « aujourd'hui »** : le message envoyé à Claude
+  contenait la date du jour ET la date de réception du mail ; Claude a
+  parfois résolu « en cours de livraison aujourd'hui » au 27/10 (jour de
+  l'analyse) au lieu du 23/10 (jour du mail). Corrigé : seule la date de
+  réception est donnée. Écart à la mission, qui demandait d'injecter la date
+  du jour : c'est justement ce qui provoquait l'erreur.
+- **Un colis dédoublé** : « Monoprix.fr » et « Monoprix » ne
+  correspondaient pas (comparaison exacte). Le rapprochement par marchand
+  ignore maintenant majuscules, accents, `.fr`/`.com` et la ponctuation,
+  et accepte qu'un nom contienne l'autre (« Amazon » / « Amazon EU SARL »).
+  La consigne demande aussi à Claude d'écrire le marchand sans `.fr`.
+- **Tri instable sur une confirmation de commande** (maillot PSG compté
+  comme colis, puis non) : la consigne précise qu'une confirmation de
+  commande d'objets physiques est un colis même sans date ni suivi, et
+  qu'un achat dématérialisé ou un repas livré n'en est pas un.
+- Résultat final : 5 colis, tous les mails rattachés au bon colis, 0
+  erreur. Reste un cas limite accepté : une demande d'avis Amazon est
+  parfois rattachée à la commande déjà livrée (une ligne d'historique en
+  plus, sans effet sur le statut).
+- Bruit : ~75 % des mails présélectionnés sont des pubs (Temu,
+  AliExpress...). Gardé tel quel : coût ~0,0005 $ par mail, et une requête
+  Gmail plus stricte risquerait de rater des vrais avis de livraison.
