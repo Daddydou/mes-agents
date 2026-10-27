@@ -296,3 +296,7 @@ Deux défauts constatés, corrigés dans le code :
 - Secrets GitHub (`CRON_SECRET`, `COLIS_SYNC_URL`) : création bloquée côté
   Claude Code (écriture dans un coffre de secrets) ; à faire par
   l'utilisateur avec `gh secret set`.
+- Secrets GitHub créés par l'utilisateur (`CRON_SECRET`, `COLIS_SYNC_URL`).
+  Workflow lancé à la main (workflow_dispatch) : succès, 0 mail en attente,
+  0 erreur, secrets masqués (`***`) dans les journaux publics. **L'agent
+  colis est actif** : le cron `*/30 * * * *` tourne depuis `master`.
