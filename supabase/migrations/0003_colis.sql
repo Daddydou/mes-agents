@@ -14,6 +14,7 @@
 -- On ne stocke JAMAIS le corps d'un mail : sujet + résumé d'une phrase.
 --
 -- Vérifié le 27/10/2026 : aucune table colis* dans le projet « Cater40 ».
+-- Appliquée le 27/10/2026.
 -- Idempotent : rejouable sans risque.
 -- =====================================================================
 

@@ -121,7 +121,7 @@ toutes les 30 min par GitHub Actions sur `GET /api/colis/sync`.
 - **Proxy** : `/api/colis/sync` passe sans cookie (GitHub Actions n'en a
   pas) ; la route exige `Authorization: Bearer <CRON_SECRET>` (comparaison à
   temps constant, et tout est refusé si `CRON_SECRET` n'est pas défini).
-- **Migration 0003** (pas encore appliquée, à valider) : celle de la mission,
+- **Migration 0003** (validée et **appliquée** au projet « Cater40 » le 27/10/2026 ; vérifié : RLS active, aucune policy, anon sans accès) : celle de la mission,
   plus une contrainte sur les statuts, un `revoke` explicite pour anon et
   authenticated, un index sur le n° de commande, et un index unique
   `(colis_id, email_id)` dans l'historique.
@@ -173,6 +173,6 @@ toutes les 30 min par GitHub Actions sur `GET /api/colis/sync`.
 
 ### Reste à faire
 
-Appliquer la migration (après validation), configurer Google Cloud, lancer
+Configurer Google Cloud, lancer
 le dryRun sur les vrais mails, puis le premier vrai passage, le déploiement
 Vercel et l'activation du workflow.
