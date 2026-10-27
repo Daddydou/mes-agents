@@ -218,3 +218,12 @@ Vercel et l'activation du workflow.
   - Vérifié en production : `/` et `/confidentialite` répondent 200 sans
     mot de passe ; `/conseiller` et `/colis` redirigent vers `/login` ;
     `/api/*` répond 401.
+- **À faire avant de considérer l'agent comme actif** : fusionner
+  `feature/agent-colis` dans `master`. GitHub Actions ne lance les tâches
+  planifiées (`schedule`) que depuis la branche par défaut : tant que
+  `.github/workflows/colis-sync.yml` n'est pas sur `master`, la synchro
+  toutes les 30 min ne tournera pas. Cette fusion remet aussi la production
+  Vercel sur `master`.
+- **Police Geist conservée** (décision de l'utilisateur) : l'alerte de
+  design « police trop répandue » est désactivée pour Geist
+  (`.impeccable/config.json`).
