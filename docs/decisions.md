@@ -199,3 +199,22 @@ Vercel et l'activation du workflow.
     de Google, demandée pour l'accès à Gmail.
 - Vérifié avant de pousser (dépôt public) : `.env.local` est ignoré par git,
   et aucune de ses valeurs n'apparaît dans l'historique.
+- **Déploiement Vercel** : projet `mes-agents` (équipe « daddydou's
+  projects »), relié à GitHub. Production : https://mes-agents-pi.vercel.app
+  - Déployé en production **depuis la branche `feature/agent-colis`**, à ta
+    demande, avant la fusion dans `master`. ⚠ Le projet reste configuré avec
+    `master` comme branche de production : le prochain push sur `master`
+    remplacera la production. Il faut donc fusionner la branche avant.
+  - Variables copiées depuis `.env.local` par la CLI Vercel (`vercel env
+    add`, valeurs lues dans le fichier et jamais affichées), en production et
+    en preview. Les secrets sont de type « Secret » (illisibles une fois
+    enregistrés) ; seules `NEXT_PUBLIC_SUPABASE_URL` et `TENNIS_APP_URL` sont
+    en clair.
+  - `CRON_SECRET` généré aléatoirement (32 octets), écrit dans `.env.local`
+    et sur Vercel. Il servira aussi de secret GitHub.
+  - Pas encore sur Vercel : `SUPABASE_SERVICE_ROLE_KEY` et les variables
+    `GOOGLE_*`. Tant qu'elles manquent, `/colis` et `/api/colis/sync`
+    échouent ; les autres pages fonctionnent.
+  - Vérifié en production : `/` et `/confidentialite` répondent 200 sans
+    mot de passe ; `/conseiller` et `/colis` redirigent vers `/login` ;
+    `/api/*` répond 401.
