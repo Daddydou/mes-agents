@@ -14,7 +14,8 @@ données en LECTURE SEULE : jamais d'écriture depuis un agent.
 
 ## Où est quoi
 
-- src/app/page.tsx : interface unique « Conseiller » (onglets TTFL / Tennis, trace de raisonnement, avis bon/mauvais)
+- src/app/page.tsx et src/app/confidentialite/ : pages PUBLIQUES (présentation + confidentialité, exigées par Google) ; tout le reste est derrière le mot de passe (src/proxy.ts)
+- src/app/conseiller/page.tsx : interface unique « Conseiller » (onglets TTFL / Tennis, trace de raisonnement, avis bon/mauvais)
 - src/app/api/ttfl/ : agent TTFL, lit le pick du jour via la fonction SQL get_ttfl_pick_du_jour
 - src/app/api/tennis/ : agent tennis, appelle la route /api/agent/tour-courant de Tennis App (voir plus bas), retire les joueurs déjà pickés par le stock
 - src/app/api/colis/sync/ : agent colis (GET protégé par CRON_SECRET, `?dryRun=1` n'écrit rien), lancé toutes les 30 min par .github/workflows/colis-sync.yml

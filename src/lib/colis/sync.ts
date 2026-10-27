@@ -228,8 +228,10 @@ export async function synchroniserColis(options: { simulation: boolean; max?: nu
 }
 
 async function marquerTraite(db: SupabaseColis, mail: Mail, estColis: boolean) {
+  // Le sujet n'est gardé que pour un mail de colis : pour les autres
+  // (newsletter, mail perso...), seul l'identifiant Gmail est conservé.
   const { error } = await db.from('colis_emails_traites').upsert(
-    { email_id: mail.id, thread_id: mail.threadId, sujet: mail.sujet.slice(0, 300), est_colis: estColis },
+    { email_id: mail.id, thread_id: mail.threadId, sujet: estColis ? mail.sujet.slice(0, 300) : null, est_colis: estColis },
     { onConflict: 'email_id' },
   );
   if (error) throw new Error(`Supabase (colis_emails_traites) : ${error.message}`);

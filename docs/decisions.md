@@ -176,3 +176,26 @@ toutes les 30 min par GitHub Actions sur `GET /api/colis/sync`.
 Configurer Google Cloud, lancer
 le dryRun sur les vrais mails, puis le premier vrai passage, le déploiement
 Vercel et l'activation du workflow.
+
+## 27/10/2026 : déploiement Vercel et pages publiques
+
+- **Pages publiques `/` et `/confidentialite`** (exigées par l'écran de
+  consentement Google). Tout le reste reste derrière le mot de passe.
+  - Choix : la page « Conseiller » quitte `/` pour **`/conseiller`** (contenu
+    inchangé) ; après connexion on arrive sur `/conseiller`.
+  - Sécurité : une Server Action peut être appelée via n'importe quelle URL.
+    Sur les pages publiques, le proxy ne laisse donc passer que la lecture
+    (une requête `next-action` sans session reçoit 401). Les actions
+    revérifiaient déjà la session de leur côté.
+- **Confidentialité, deux corrections pour que la page dise vrai** :
+  - le code gardait le sujet de TOUS les mails analysés, y compris ceux qui
+    ne sont pas des colis (newsletters, mails perso). Il ne garde plus que
+    l'identifiant Gmail pour ces mails-là ;
+  - « ne partage rien avec des tiers » n'est pas exact au sens strict : le
+    texte des mails de livraison est envoyé à l'API d'Anthropic pour
+    l'analyse. La page nomme donc les prestataires techniques (Anthropic,
+    Supabase, Vercel) et précise qu'aucune donnée n'est vendue, cédée ou
+    utilisée pour de la pub. Elle mentionne aussi la règle « Limited Use »
+    de Google, demandée pour l'accès à Gmail.
+- Vérifié avant de pousser (dépôt public) : `.env.local` est ignoré par git,
+  et aucune de ses valeurs n'apparaît dans l'historique.

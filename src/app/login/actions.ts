@@ -13,7 +13,7 @@ import {
 function destinationSure(next: unknown): string {
   return typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')
     ? next
-    : '/';
+    : '/conseiller';
 }
 
 /**
@@ -31,7 +31,7 @@ export async function seConnecter(data: FormData): Promise<void> {
 
   if (typeof saisi !== 'string' || !verifierMotDePasse(saisi)) {
     const echec = new URLSearchParams({ erreur: '1' });
-    if (next !== '/') echec.set('next', next);
+    if (next !== '/conseiller') echec.set('next', next);
     redirect(`/login?${echec}`);
   }
 

@@ -11,7 +11,7 @@ export default async function LoginPage({
 }) {
   // Le proxy laisse /login passer sans cookie : c'est ici qu'on renvoie un
   // visiteur déjà connecté vers l'app.
-  if (await sessionValide()) redirect('/');
+  if (await sessionValide()) redirect('/conseiller');
 
   const { next, erreur } = await searchParams;
 
