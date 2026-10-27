@@ -422,3 +422,8 @@ Limites assumées :
   commité tout le dossier, puis déployé en production à 21:09 UTC, avant
   la migration. Vérifié : aucun mail traité entre ce déploiement et la
   migration (dernier passage 20:40 UTC), aucune erreur Vercel.
+- **Reprise faite en production** (`?reprise=1`, 6 appels Claude ≈
+  0,003 $) : 0 erreur, 2 événements mis à jour (Veepee, Amazon Swiffer)
+  avec le lien « Dernier mail » et un lien par ligne d'historique. Vérifié
+  dans Google Agenda : 5 événements pour 5 colis, aucun doublon ; les colis
+  livrés n'ont pas été touchés (ils n'ont pas les liens, voulu).
