@@ -2,7 +2,7 @@ import 'server-only';
 import { clientsGoogle, type Agenda } from './google';
 import { listerMails, lireMail, type Mail } from './gmail';
 import { extraire, type Extraction } from './extraction';
-import { fusionner, memeMarchand, nettoyerExtraction, trouverColis, type InfosColis } from './rapprochement';
+import { candidatParDate, fusionner, memeMarchand, nettoyerExtraction, trouverColis, type InfosColis } from './rapprochement';
 import { changementDate, idAgendaColis, synchroniserEvenement, type ActionAgenda } from './agenda';
 import { supabaseColis, type Colis, type LigneHistorique, type SupabaseColis } from './supabase';
 import { ANALYSES_EN_PARALLELE, BUDGET_TEMPS_MS, MAX_MAILS_PAR_PASSAGE, REQUETE_GMAIL } from './config';
@@ -291,6 +291,8 @@ async function trouverColisSimulation(db: SupabaseColis, infos: InfosColis, simu
         !(c.numero_suivi && infos.numero_suivi)),
   );
   if (enMemoire) return enMemoire;
+  const parDate = simules.filter((c) => candidatParDate(c, infos));
+  if (parDate.length === 1) return parDate[0];
   try {
     return await trouverColis(db, infos);
   } catch {

@@ -94,12 +94,34 @@ export function memeMarchand(a: string | null, b: string | null): boolean {
 }
 
 /**
+ * Règle 3 : un mail de TRANSPORTEUR (numéro de suivi mais pas de numéro de
+ * commande) se rattache au colis du même marchand, encore sans numéro de
+ * suivi, pas livré, attendu le même jour. Vu au premier passage : la
+ * commande Amazon (n° de commande, pas de suivi) puis le mail Colissimo
+ * (suivi, pas de n° de commande) donnaient deux colis. On ne rattache que
+ * s'il y a UN seul candidat : sinon, on ne devine pas.
+ */
+export function candidatParDate(c: Colis, infos: InfosColis): boolean {
+  return (
+    !!infos.numero_suivi &&
+    !infos.numero_commande &&
+    !!infos.date_livraison_prevue &&
+    c.date_livraison_prevue === infos.date_livraison_prevue &&
+    !c.numero_suivi &&
+    c.statut !== 'livree' &&
+    c.statut !== 'annulee' &&
+    memeMarchand(c.marchand, infos.marchand)
+  );
+}
+
+/**
  * Règles de rapprochement, dans l'ordre :
  * 1. numéro de suivi déjà connu → ce colis ;
  * 2. sinon même marchand + même numéro de commande → ce colis, SAUF si les
  *    deux ont un numéro de suivi différent (une commande Amazon peut
  *    partir en plusieurs colis) ;
- * 3. sinon → nouveau colis (null).
+ * 3. sinon mail de transporteur et UN seul colis compatible (candidatParDate) ;
+ * 4. sinon → nouveau colis (null).
  */
 export async function trouverColis(db: SupabaseColis, infos: InfosColis): Promise<Colis | null> {
   if (infos.numero_suivi) {
@@ -114,6 +136,16 @@ export async function trouverColis(db: SupabaseColis, infos: InfosColis): Promis
       (c) => memeMarchand(c.marchand, infos.marchand) && !(c.numero_suivi && infos.numero_suivi),
     );
     if (candidat) return candidat;
+  }
+  if (infos.numero_suivi && !infos.numero_commande && infos.date_livraison_prevue) {
+    const { data, error } = await db
+      .from('colis')
+      .select('*')
+      .eq('date_livraison_prevue', infos.date_livraison_prevue)
+      .is('numero_suivi', null);
+    if (error) throw new Error(`Supabase (colis par date) : ${error.message}`);
+    const candidats = (data as Colis[]).filter((c) => candidatParDate(c, infos));
+    if (candidats.length === 1) return candidats[0];
   }
   return null;
 }

@@ -255,3 +255,20 @@ les 50 plus anciens des 59 mails candidats.
 - Bruit : ~75 % des mails présélectionnés sont des pubs (Temu,
   AliExpress...). Gardé tel quel : coût ~0,0005 $ par mail, et une requête
   Gmail plus stricte risquerait de rater des vrais avis de livraison.
+
+## 27/10/2026 : premier vrai passage (local)
+
+4 passages, 59 mails, 0 erreur. Agenda « 📦 Colis » créé, 7 colis, 6
+événements. Idempotence vérifiée : un seul événement par colis malgré
+plusieurs mails par colis.
+
+Deux défauts constatés, corrigés dans le code :
+- **Doublon Amazon / Colissimo** : la commande Amazon (n° de commande, pas
+  de suivi) puis le mail Colissimo (suivi, pas de n° de commande) ne se
+  rapprochaient par aucune des règles de la mission. **Nouvelle règle 3**
+  (écart à la mission, qui en prévoyait 3 en tout) : un mail de transporteur
+  sans n° de commande se rattache au colis du même marchand, sans suivi,
+  non livré, attendu le même jour, **seulement s'il n'y a qu'un candidat**.
+- **Statut « disponible en point relais » trop tôt** : « sera livré
+  mercredi au point relais » était lu comme « disponible ». La consigne
+  réserve ce statut au colis réellement arrivé et retirable.
