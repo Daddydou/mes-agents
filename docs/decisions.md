@@ -300,3 +300,6 @@ Deux défauts constatés, corrigés dans le code :
   Workflow lancé à la main (workflow_dispatch) : succès, 0 mail en attente,
   0 erreur, secrets masqués (`***`) dans les journaux publics. **L'agent
   colis est actif** : le cron `*/30 * * * *` tourne depuis `master`.
+- Vérifié par l'utilisateur : écran de consentement Google « En production »
+  (le refresh token n'expire pas au bout de 7 jours) ; fichier
+  `client_secret_….json` supprimé de Téléchargements.
