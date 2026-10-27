@@ -272,3 +272,15 @@ Deux défauts constatés, corrigés dans le code :
 - **Statut « disponible en point relais » trop tôt** : « sera livré
   mercredi au point relais » était lu comme « disponible ». La consigne
   réserve ce statut au colis réellement arrivé et retirable.
+- **Reprise à zéro** (option A, validée par l'utilisateur) : les 6 événements
+  créés par l'agent ont été supprimés de l'agenda « 📦 Colis » (seulement
+  ceux portant la propriété privée `colis_id`, l'agenda est conservé), puis
+  les tables `colis`, `colis_historique` et `colis_emails_traites` ont été
+  vidées. `colis_config` est conservée. Nouveau passage complet : 59 mails,
+  0 erreur, **6 colis, 5 événements**. Le colis Swiffer regroupe bien 3 mails
+  (commande, expédition, Colissimo) ; Swiffer et Veepee sont « en transit ».
+  Coût de la reprise : ~0,03 $.
+- Détail d'affichage : un colis Amazon portait le nom du vendeur tiers
+  (« Ponera (vendeur tiers via Amazon) »). La consigne demande maintenant
+  la plateforme. Ça ne s'applique qu'aux prochains mails ; le colis
+  concerné est déjà livré.
