@@ -303,3 +303,19 @@ Deux défauts constatés, corrigés dans le code :
 - Vérifié par l'utilisateur : écran de consentement Google « En production »
   (le refresh token n'expire pas au bout de 7 jours) ; fichier
   `client_secret_….json` supprimé de Téléchargements.
+
+## 27/10/2026 : région Vercel et mises à jour
+
+- **Région des fonctions : Paris (`cdg1`)** au lieu de Washington
+  (`iad1`), réglée dans le projet Vercel (`functionDefaultRegions`).
+  Choix entre les deux options proposées (Paris ou Francfort) : Paris, plus
+  proche de la base Supabase (Irlande) et de l'utilisateur. Confort
+  (latence), pas sécurité.
+- **Mises à jour** : next et eslint-config-next 16.3.5 → 16.4.3 (version
+  exacte gardée, comme avant), `@ai-sdk/anthropic` 4.0.58 → 4.0.90 (connaît
+  maintenant `claude-haiku-5-5`), ai 7.0.155, zod 4.6.7, puis
+  `npm audit fix` : **0 vulnérabilité** (il y en avait dans next, zod,
+  sharp, undici, source-map-js). Vérifié : typage, linter, build, tests de
+  rapprochement, et un vrai appel d'extraction sur un faux mail (< 0,001 $).
+- Consigne d'extraction : « livré demain » = en transit, pas « en cours de
+  livraison » (vu sur le faux mail de test).
