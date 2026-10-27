@@ -284,3 +284,15 @@ Deux défauts constatés, corrigés dans le code :
   (« Ponera (vendeur tiers via Amazon) »). La consigne demande maintenant
   la plateforme. Ça ne s'applique qu'aux prochains mails ; le colis
   concerné est déjà livré.
+
+## 27/10/2026 : fusion dans master
+
+- `feature/agent-colis` fusionnée dans `master` (avance rapide, sans
+  conflit) et poussée. La production Vercel est redéployée depuis `master`,
+  avec toutes les variables (Supabase service role, Google, CRON_SECRET).
+  Vérifié en production : pages publiques en 200, pages privées
+  redirigées, `/api/colis/sync` en 401 sans jeton, dryRun avec jeton OK
+  (Gmail et Supabase joignables, 0 erreur).
+- Secrets GitHub (`CRON_SECRET`, `COLIS_SYNC_URL`) : création bloquée côté
+  Claude Code (écriture dans un coffre de secrets) ; à faire par
+  l'utilisateur avec `gh secret set`.
