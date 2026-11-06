@@ -27,7 +27,7 @@ export default function Confidentialite() {
         </Link>
       </p>
       <h1 className="mt-4 text-2xl font-semibold">Politique de confidentialité</h1>
-      <p className="mt-2 text-sm text-zinc-500">Dernière mise à jour : 27 octobre 2026</p>
+      <p className="mt-2 text-sm text-zinc-500">Dernière mise à jour : 6 novembre 2026</p>
 
       <Section titre="Usage strictement personnel">
         <p>
@@ -71,13 +71,16 @@ export default function Confidentialite() {
             effacé dès que le colis est livré ou annulé ;
           </li>
           <li>
-            pour chaque mail de livraison : son sujet, un résumé d&apos;une phrase et ses
-            identifiants techniques Gmail (mail et conversation), qui servent uniquement à afficher
-            un lien vers ce mail dans l&apos;agenda « 📦 Colis » et sur la page de suivi ;
+            pour chaque mail de livraison : son objet, le nom court de l&apos;expéditeur (par
+            exemple « Colissimo », jamais son adresse), sa date de réception, un résumé d&apos;une
+            phrase et ses identifiants techniques Gmail (mail et conversation). Ils servent
+            uniquement à afficher ce mail, avec un lien vers lui, dans l&apos;agenda « 📦 Colis » et
+            sur la page de suivi, pour pouvoir le retrouver dans Gmail ;
           </li>
           <li>
-            l&apos;identifiant technique Gmail des mails déjà analysés, pour ne pas les relire (sans
-            sujet ni contenu pour les mails qui ne concernent pas un colis).
+            l&apos;identifiant technique Gmail des mails déjà analysés, pour ne pas les relire. Pour
+            les mails qui ne concernent pas un colis, rien d&apos;autre : ni objet, ni expéditeur, ni
+            contenu.
           </li>
         </ul>
       </Section>

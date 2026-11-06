@@ -1,6 +1,6 @@
 import 'server-only';
 import { clientsGoogle, type Agenda } from './google';
-import { listerMails, lireMail, type Mail } from './gmail';
+import { expediteurCourt, listerMails, lireMail, type Mail } from './gmail';
 import { extraire, type Extraction } from './extraction';
 import { candidatParDate, fusionner, memeMarchand, nettoyerExtraction, trouverColis, type InfosColis } from './rapprochement';
 import { changementDate, idAgendaColis, synchroniserEvenement, type ActionAgenda } from './agenda';
@@ -201,6 +201,9 @@ export async function synchroniserColis(options: { simulation: boolean; max?: nu
           colis_id: colis.id,
           email_id: mail.id,
           thread_id: mail.threadId,
+          // Mail reconnu comme colis : on garde de quoi le retrouver par recherche.
+          expediteur: expediteurCourt(mail.expediteur),
+          sujet: mail.sujet.slice(0, 300) || null,
           statut: extraction.statut,
           resume,
           created_at: mail.recuLe.toISOString(),
@@ -260,7 +263,7 @@ async function mettreAJourAgenda(
 ): Promise<ActionAgenda> {
   const { data, error } = await db
     .from('colis_historique')
-    .select('email_id, thread_id, statut, resume, created_at')
+    .select('email_id, thread_id, expediteur, sujet, statut, resume, created_at')
     .eq('colis_id', colis.id)
     .order('created_at', { ascending: false })
     .limit(20);

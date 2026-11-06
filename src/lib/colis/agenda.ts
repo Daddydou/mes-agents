@@ -95,15 +95,25 @@ export function descriptionEvenement(c: Colis, historique: LigneHistorique[], ma
   if (dernier) lignes.push(`📧 Dernier mail : ${lien(lienLigne(dernier)!)}`);
 
   // Historique : les 5 dernières mises à jour, la plus récente d'abord, chacune avec SON mail.
+  // « 27/10 14:32 — Colissimo — « Votre colis arrive demain » — lien » : l'appli
+  // Gmail du téléphone n'ouvre pas le lien, l'expéditeur et l'objet permettent
+  // de retrouver le mail par recherche. Ligne sans objet (avant la migration
+  // 0006) : le résumé, comme avant.
   const recents = historique.slice(0, 5);
   if (recents.length) {
     if (lignes.length) lignes.push('');
     lignes.push('<b>Dernières mises à jour :</b>');
     for (const h of recents) {
       const url = lienLigne(h);
-      lignes.push(
-        `${jourHeureFr(new Date(h.created_at))} — ${echapper(resumeAffiche(h))}${url ? ` — ${lien(url)}` : ''}`,
-      );
+      const morceaux = [jourHeureFr(new Date(h.created_at))];
+      if (h.sujet) {
+        if (h.expediteur) morceaux.push(echapper(h.expediteur));
+        morceaux.push(`« ${echapper(h.sujet)} »`);
+      } else {
+        morceaux.push(echapper(resumeAffiche(h)));
+      }
+      if (url) morceaux.push(lien(url));
+      lignes.push(morceaux.join(' — '));
     }
   }
 

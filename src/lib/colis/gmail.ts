@@ -75,6 +75,35 @@ export async function lireMail(gmail: Gmail, id: string): Promise<Mail> {
   };
 }
 
+/**
+ * Nom court de l'expéditeur, pour la recherche dans Gmail : le nom affiché
+ * (« Amazon <pickup-point@amazon.fr> » → « Amazon »), sinon le domaine
+ * (« amazon.fr »). Jamais l'adresse complète.
+ */
+export function expediteurCourt(from: string): string | null {
+  const nom = from.replace(/<[^>]*>/g, '').replace(/["']/g, '').trim();
+  if (nom && !nom.includes('@')) return nom.slice(0, 80);
+  const domaine = from.match(/@([^>\s]+)/)?.[1];
+  return domaine ? domaine.toLowerCase().slice(0, 80) : null;
+}
+
+/** Objet et expéditeur d'un mail, sans son contenu (relecture de l'historique). */
+export async function lireEntetes(gmail: Gmail, id: string) {
+  const { data } = await gmail.users.messages.get({
+    userId: 'me',
+    id,
+    format: 'metadata',
+    metadataHeaders: ['From', 'Subject'],
+  });
+  const entete = (nom: string) =>
+    data.payload?.headers?.find((h) => h.name?.toLowerCase() === nom)?.value ?? '';
+  return {
+    threadId: data.threadId ?? null,
+    expediteur: expediteurCourt(entete('from')),
+    sujet: entete('subject').slice(0, 300) || null,
+  };
+}
+
 const ENTITES: Record<string, string> = {
   nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
   eacute: 'é', egrave: 'è', ecirc: 'ê', agrave: 'à', acirc: 'â', ccedil: 'ç',
@@ -118,8 +147,9 @@ function tronquer(texte: string, max: number): string {
 }
 
 /**
- * Lien qui ouvre UN mail précis dans Gmail (testé le 27/10/2026, voir
- * docs/decisions.md). `#all/<id du fil>` ouvre la conversation sur son mail
+ * Lien qui ouvre UN mail précis dans Gmail, sur ordinateur (testé le
+ * 27/10/2026 et revérifié le 06/11/2026 contre `#search/rfc822msgid:`, voir
+ * docs/decisions.md ; l'appli Gmail du téléphone, elle, ne suit pas ces liens). `#all/<id du fil>` ouvre la conversation sur son mail
  * le plus RÉCENT : faux quand Gmail range deux avis Colissimo dans le même
  * fil. `#all/<id du message>` échoue pour le 1er mail d'un fil (son id est
  * aussi celui du fil). La forme `thread-f:<fil>|msg-f:<message>` (ids en

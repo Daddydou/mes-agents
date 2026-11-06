@@ -427,3 +427,54 @@ Limites assumées :
   avec le lien « Dernier mail » et un lien par ligne d'historique. Vérifié
   dans Google Agenda : 5 événements pour 5 colis, aucun doublon ; les colis
   livrés n'ont pas été touchés (ils n'ont pas les liens, voulu).
+
+## 06/11/2026 : expéditeur et objet dans l'historique de l'agenda (migration 0006)
+
+Problème : sur le téléphone, l'appli Gmail n'ouvre pas un mail précis
+depuis un lien web (elle arrive sur la boîte de réception). On ne force
+pas ça : chaque ligne d'historique affiche de quoi retrouver le mail par
+recherche dans l'appli.
+
+- **Format d'une ligne** : `27/10 14:32 — Colissimo — « objet » — lien`
+  (date/heure de réception = `created_at`, déjà la date du mail). Le résumé
+  d'une phrase n'apparaît plus sur ces lignes (le modèle demandé ne l'a
+  pas) ; il reste affiché pour une ligne sans objet connu (ancienne ligne).
+  Le changement de date reste signalé à part (« Date modifiée »).
+- **Expéditeur** : nom affiché de l'en-tête From (« Amazon
+  <pickup-point@amazon.fr> » → « Amazon »), à défaut le domaine
+  (« amazon.fr »). Jamais l'adresse complète (minimisation).
+- **Où c'est stocké** : `colis_historique.expediteur` et `.sujet`. Cette
+  table ne contient QUE des mails reconnus comme colis : la règle « rien
+  d'autre que l'identifiant pour les autres mails » tient sans code en
+  plus (`colis_emails_traites` garde déjà `sujet` null hors colis). La
+  migration reprend l'objet depuis `colis_emails_traites`.
+- **Lien testé sur ordinateur** (Chrome, mail de 11:08 suivi d'un mail de
+  11:09 dans le même fil, **même objet**, le cas piège) :
+  - `#all/<id>` : déplie le mail de 11:09 → **mauvais mail**.
+  - `#all/%23thread-f:<fil>|msg-f:<message>` (format déjà en place) : ouvre
+    directement le mail de 11:08 → bon.
+  - `#search/rfc822msgid:<Message-ID>` : liste de résultats d'abord, un clic
+    de plus pour arriver sur 11:08 → bon mais moins direct, et demanderait
+    de stocker le Message-ID (nouvelle donnée).
+  - **Retenu** : le format en place (`thread-f|msg-f`, avec
+    `authuser=lolo.rms@gmail.com`). Rien ne change dans `lienMail`.
+- **Reprise** (`?reprise=1`) réécrite : relit les EN-TÊTES seulement
+  (`format: 'metadata'`, From + Subject) des mails de l'historique des colis
+  en cours, aucun appel Claude, aucun contenu lu. Ne fait que patcher les
+  événements existants. L'ancienne reprise (liens + code, 27/10) était
+  faite : remplacée.
+- **dryRun de reprise** (avant migration) : 4 colis en cours, 17 mails
+  relus, 0 appel Claude, 0 erreur, 4 événements à modifier, rien d'écrit.
+- **Ordre de mise en ligne** : migration 0006 AVANT le déploiement (le
+  nouveau code écrit `expediteur`/`sujet` ; l'ancien code ignore ces
+  colonnes, donc migrer d'abord ne casse rien).
+- Coût : 0 $ (pas d'appel Claude ni de recherche web ; appels Gmail
+  gratuits).
+- **Mise en ligne** : migration 0006 validée par l'utilisateur et appliquée
+  (46 lignes d'historique, toutes avec leur objet ; 0 objet gardé hors
+  colis ; RLS toujours active). Reprise réelle (lancée en local, même base
+  et même agenda) : 4 colis en cours, 17 lignes complétées (expéditeur +
+  objet), 4 événements modifiés, 0 appel Claude, 0 erreur. Agenda vérifié
+  avant/après : 10 événements pour 10 colis, aucun doublon ; les 6
+  événements des colis livrés n'ont pas été touchés (leurs lignes n'ont
+  que l'objet, pas l'expéditeur : voulu, ils ne sont plus affichés).

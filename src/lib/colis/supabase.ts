@@ -67,6 +67,10 @@ export type Colis = {
 export type LigneHistorique = {
   email_id: string | null;
   thread_id: string | null;
+  /** Nom court de l'expéditeur (jamais l'adresse) ; absent avant la migration 0006. */
+  expediteur?: string | null;
+  /** Objet du mail ; absent avant la migration 0006. */
+  sujet?: string | null;
   statut: string | null;
   resume: string | null;
   created_at: string;

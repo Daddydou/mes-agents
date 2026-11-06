@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const max = simulation && params.get('max') ? Math.min(Math.max(Number(params.get('max')) || 1, 1), 50) : undefined;
 
   try {
-    // ?reprise=1 : remise à jour unique des colis en cours (liens + code de retrait), voir reprise.ts.
+    // ?reprise=1 : remise à jour unique des colis en cours (expéditeur + objet de l'historique), voir reprise.ts.
     if (params.get('reprise') === '1') {
       return Response.json({ ok: true, ...(await reprendreColisEnCours({ simulation })) });
     }
