@@ -478,3 +478,8 @@ recherche dans l'appli.
   avant/après : 10 événements pour 10 colis, aucun doublon ; les 6
   événements des colis livrés n'ont pas été touchés (leurs lignes n'ont
   que l'objet, pas l'expéditeur : voulu, ils ne sont plus affichés).
+- **Déployé en production** (commit `5d5f9a2` poussé sur
+  `feature/agent-colis` et en avance rapide sur `master`, branche de
+  production Vercel). Vérifié : /confidentialite à jour en ligne ; reprise
+  en simulation sur la production (en-têtes seulement, rien d'écrit) : 200,
+  `cdg1`, 0 appel Claude, 0 erreur, lignes au nouveau format.
